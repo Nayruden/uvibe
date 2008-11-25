@@ -15,9 +15,7 @@ struct UserInfo
 }
 
 class IRCConnection
-{
-	static const marker = '\x01';
-	
+{	
 	InternetAddress addr;
 	private SocketConduit conn;
 	private char[] buf;
@@ -27,15 +25,8 @@ class IRCConnection
 	SimpleCallback!(void, char[]) onRawLine;
 	SimpleCallback!(void, UserInfo, char[], char[]) onPrivMsg;
 	
-	this( in char[] saddr, in ushort port ) 
-	{
-		addr = new InternetAddress( saddr, port );
-		setup();
-	}
-	
-	this( InternetAddress addr )
-	{
-		this.addr = addr;
+	this()
+	{		
 		setup();
 	}
 	
@@ -43,9 +34,19 @@ class IRCConnection
 	{
 		onRawLine = new SimpleCallback!(void, char[]);
 		onPrivMsg = new SimpleCallback!(void, UserInfo, char[], char[]);
+		
+		buf = "";
 	}
 	
-	void connect() {
+	void connect( in char[] saddr, in ushort port )
+	{
+		auto addr = new InternetAddress( saddr, port );
+		connect( addr );
+	}
+	
+	void connect( InternetAddress addr )
+	{
+		this.addr = addr;
 		conn = new SocketConduit;
 		conn.connect( addr );
 		conn.setTimeout( 0.5 ); // TODO, abstract
@@ -54,13 +55,11 @@ class IRCConnection
 		nick = "UVibe";
 		writeln( "NICK " ~ nick ); // TODO, abstract
 		writeln( "USER UVibe 0 * :Test thing" );
-		
-		buf = "";
 	}
 	
 	void writeln( char[] str ) {
 		conn.write( str ~ "\n" );
-		Stdout( "> " ~ str ~ "\n" );
+		Stdout( "> " ~ str ~ "\n" ); // For debugging
 	}
 	
 	void join( in char[] room ) {
@@ -96,7 +95,7 @@ class IRCConnection
 			
 		else if ( line[ 0 ] == ':' ) { // Probably a regular message (need to verify with RFC)
 			line = line[ 1 .. $ ];
-			int separation_point = locate!(char)( line, ':' );
+			uint separation_point = locate!(char)( line, ':' );
 			if ( separation_point == line.length ) return; // TODO, messages during startup
 			auto msg_info = line[ 0 .. separation_point ];
 			auto msg = line[ separation_point + 1 .. $ ];
@@ -113,8 +112,11 @@ class IRCConnection
 	UserInfo parseUserMask( char[] mask )
 	{
 		UserInfo userinfo;
-		int exclamation_pos = locate!(char)( mask, '!' );
+		uint exclamation_pos = locate!(char)( mask, '!' );
+		uint at_pos = locate!(char)( mask, '@' );
 		userinfo.nick = mask[ 0 .. exclamation_pos ];
+		userinfo.username = mask[ exclamation_pos + 1 .. at_pos ];
+		userinfo.hostname = mask[ at_pos + 1 .. $ ];
 		
 		return userinfo;
 	}

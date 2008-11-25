@@ -7,6 +7,7 @@ import tango.io.Stdout;
 import tango.text.Util;
 import callback;
 import ircconnection;
+import ctcp;
 
 /*
 Msg to channel:
@@ -25,28 +26,22 @@ Ping:
 PING :<args>
 to be answered with:
 PONG :<args>
+
+	CTCP REQUEST Erlie-chan CLIENTINFO
+	Erlie-chan CTCP REPLY CLIENTINFO CLIENTINFO ACTION FINGER TIME VERSION SOURCE OS HOST PING DCC
+	
+	CTCP REPLY Nayruden VERSION Colloquy 2.1 (3761) - Mac OS X 10.5.5 (Intel) - http://colloquy.info
 */
 
 void main()
-{	
-	auto conn = new IRCConnection( "irc.freenode.net", 8000 );
-	conn.connect();
+{
+	auto conn = new CTCP!(IRCConnection);
+	conn.connect( "irc.freenode.net", 8000 );
 	conn.join( "#daydream" );
 	
-	// TODO, move these listeners elsewhere
-	conn.onRawLine ~= function void( char[] line ) { Stdout.formatln( line ); };
-	
-	conn.onPrivMsg ~= delegate void( UserInfo userinfo, char[] target, char[] msg )
+	conn.onRawLine ~= function void( char[] line ) 
 	{
-		static const ping = conn.marker ~ "PING";
-		if ( target == conn.nick && msg[ 0 .. ping.length ] == ping && msg[ $-1 ] == conn.marker ) {
-			char[] challenge = "";
-			if ( msg.length > ping.length + 1 )
-				challenge = msg[ ping.length + 1 .. $-1 ];
-			if ( challenge.length > 16 )
-				return; // RFC: If challenge > 16 then silently ignore
-			conn.writeln( "NOTICE " ~ userinfo.nick ~ " :" ~ ping ~ " " ~ challenge ~ conn.marker );
-		}
+		Stdout( line ~ "\n" ); 
 	};
 	
 	while ( conn.isConnected ) {
